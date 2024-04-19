@@ -26,6 +26,8 @@ from .consistency_check import make_consistency
 from .human_masking import video2humanmasks
 from .load_images import load_image
 from .video_audio_utilities import vid2frames, get_quick_vid_info, get_frame_name
+from .blocking_file_list import BlockingFileList
+from modules.shared import opts
 
 def delete_all_imgs_in_folder(folder_path):
         files = list(pathlib.Path(folder_path).glob('*.jpg'))
@@ -78,11 +80,15 @@ def hybrid_generation(args, anim_args, root):
     inputfiles = sorted(pathlib.Path(video_in_frame_path).glob('*.jpg'))
 
     if not anim_args.hybrid_use_init_image:
-        # determine max frames from length of input frames
+        if opts.data.get("deforum_allow_blocking_input_framelists", False):
+            print(f"Will wait for input frames to appear in {video_in_frame_path}")
+            inputfiles = BlockingFileList(hybrid_frame_path, anim_args.max_frames, ".jpg")
+        elif len(inputfiles) < 1:
+            raise Exception(f"Error: No input frames found in {video_in_frame_path}! Please check your input video path and whether you've opted to extract input frames.") 
+        
         anim_args.max_frames = len(inputfiles)
-        if anim_args.max_frames < 1:
-            raise Exception(f"Error: No input frames found in {video_in_frame_path}! Please check your input video path and whether you've opted to extract input frames.")
-        print(f"Using {anim_args.max_frames} input frames from {video_in_frame_path}...")
+
+    print(f"Using {anim_args.max_frames} input frames from {video_in_frame_path}...")
 
     # use first frame as init
     if anim_args.hybrid_use_first_frame_as_init_image:
